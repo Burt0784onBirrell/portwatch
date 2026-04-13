@@ -52,3 +52,21 @@ func (l *Limiter) Flush() {
 	defer l.mu.Unlock()
 	l.last = make(map[string]time.Time)
 }
+
+// Remaining returns how much cooldown time is left for the given key.
+// If the key is not rate-limited (either unseen or past the cooldown window),
+// it returns 0.
+func (l *Limiter) Remaining(key string) time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	t, ok := l.last[key]
+	if !ok {
+		return 0
+	}
+	remaining := l.cooldown - l.now().Sub(t)
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
