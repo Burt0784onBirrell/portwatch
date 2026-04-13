@@ -1,68 +1,53 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds the top-level portwatch configuration.
+// FilterRule mirrors filter.Rule for YAML unmarshalling.
+type FilterRule struct {
+	Port     uint16 `yaml:"port"`
+	Protocol string `yaml:"protocol"`
+}
+
+// Config holds the full portwatch configuration.
 type Config struct {
-	ScanInterval time.Duration `yaml:"scan_interval"`
-	Ports        PortsConfig   `yaml:"ports"`
-	Log          LogConfig     `yaml:"log"`
+	Interval  time.Duration `yaml:"interval"`
+	LogFile   string        `yaml:"log_file"`
+	AllowList []FilterRule  `yaml:"allow_list"`
+	DenyList  []FilterRule  `yaml:"deny_list"`
 }
 
-// PortsConfig controls which ports are monitored.
-type PortsConfig struct {
-	Allowlist []uint16 `yaml:"allowlist"`
-	Ignore    []uint16 `yaml:"ignore"`
-}
-
-// LogConfig controls log output.
-type LogConfig struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
-}
-
-// DefaultConfig returns a Config populated with sensible defaults.
-func DefaultConfig() *Config {
-	return &Config{
-		ScanInterval: 15 * time.Second,
-		Log: LogConfig{
-			Level:  "info",
-			Format: "text",
-		},
+// DefaultConfig returns a Config with sensible defaults.
+func DefaultConfig() Config {
+	return Config{
+		Interval: 5 * time.Second,
+		LogFile:  "",
 	}
 }
 
-// Load reads a YAML config file from path and merges it with defaults.
-func Load(path string) (*Config, error) {
-	cfg := DefaultConfig()
-
-	f, err := os.Open(path)
+// Load reads and parses a YAML config file from the given path.
+func Load(path string) (Config, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	dec := yaml.NewDecoder(f)
-	dec.KnownFields(true)
-	if err := dec.Decode(cfg); err != nil {
-		return nil, err
+		if errors.Is(err, os.ErrNotExist) {
+			return Config{}, ErrConfigNotFound
+		}
+		return Config{}, err
 	}
 
-	if err := cfg.validate(); err != nil {
-		return nil, err
+	cfg := DefaultConfig()
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, err
+	}
+
+	if cfg.Interval <= 0 {
+		return Config{}, ErrInvalidInterval
 	}
 
 	return cfg, nil
-}
-
-func (c *Config) validate() error {
-	if c.ScanInterval < time.Second {
-		return ErrInvalidInterval
-	}
-	return nil
 }
