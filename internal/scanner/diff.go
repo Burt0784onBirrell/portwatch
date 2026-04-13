@@ -1,5 +1,7 @@
 package scanner
 
+import "sort"
+
 // Diff holds the result of comparing two port snapshots.
 type Diff struct {
 	Opened []Port
@@ -9,6 +11,21 @@ type Diff struct {
 // HasChanges returns true when at least one port opened or closed.
 func (d Diff) HasChanges() bool {
 	return len(d.Opened) > 0 || len(d.Closed) > 0
+}
+
+// Sort sorts the Opened and Closed slices by protocol and port number,
+// providing a stable, human-readable ordering for display and testing.
+func (d *Diff) Sort() {
+	sortPorts := func(ports []Port) {
+		sort.Slice(ports, func(i, j int) bool {
+			if ports[i].Proto != ports[j].Proto {
+				return ports[i].Proto < ports[j].Proto
+			}
+			return ports[i].Number < ports[j].Number
+		})
+	}
+	sortPorts(d.Opened)
+	sortPorts(d.Closed)
 }
 
 // Compare returns a Diff between a previous and current set of open ports.
