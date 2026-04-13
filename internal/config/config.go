@@ -1,54 +1,56 @@
 package config
 
 import (
-	"errors"
+	"fmt"
 	"os"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all runtime configuration for portwatch.
 type Config struct {
-	Interval  time.Duration `toml:"interval"`
-	StatePath string        `toml:"state_path"`
-	LogLevel  string        `toml:"log_level"`
-	Filter    FilterConfig  `toml:"filter"`
+	Interval  time.Duration `yaml:"interval"`
+	LogFile   string        `yaml:"log_file"`
+	StateFile string        `yaml:"state_file"`
+	Webhook   WebhookConfig `yaml:"webhook"`
+	Filter    FilterConfig  `yaml:"filter"`
 }
 
-// FilterConfig holds allow/deny rule lists.
+// WebhookConfig holds optional webhook notification settings.
+type WebhookConfig struct {
+	URL     string `yaml:"url"`
+	Enabled bool   `yaml:"enabled"`
+}
+
+// FilterConfig holds port allow/deny rule strings.
 type FilterConfig struct {
-	Allow []string `toml:"allow"`
-	Deny  []string `toml:"deny"`
+	Allow []string `yaml:"allow"`
+	Deny  []string `yaml:"deny"`
 }
 
 // DefaultConfig returns a Config populated with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
 		Interval:  15 * time.Second,
-		StatePath: "/var/lib/portwatch/state.json",
-		LogLevel:  "info",
+		StateFile: "/tmp/portwatch.state",
 	}
 }
 
-// Load reads a TOML config file from path and merges it over defaults.
+// Load reads a YAML config file from path and returns a validated Config.
 func Load(path string) (Config, error) {
-	cfg := DefaultConfig()
-
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return cfg, ErrConfigNotFound
-		}
-		return cfg, err
+		return Config{}, fmt.Errorf("%w: %s", ErrFileNotFound, path)
 	}
 
-	if _, err := toml.Decode(string(data), &cfg); err != nil {
-		return cfg, err
+	cfg := DefaultConfig()
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, fmt.Errorf("config: parse error: %w", err)
 	}
 
 	if cfg.Interval <= 0 {
-		return cfg, ErrInvalidInterval
+		return Config{}, fmt.Errorf("config: %w", ErrInvalidInterval)
 	}
 
 	return cfg, nil
