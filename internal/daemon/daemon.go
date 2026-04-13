@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -45,21 +46,28 @@ func (d *Daemon) Run(ctx context.Context) error {
 			log.Println("portwatch daemon stopped")
 			return nil
 		case <-ticker.C:
-			current, err := d.scanner.Scan()
-			if err != nil {
-				log.Printf("scan error: %v", err)
-				continue
-			}
-
-			diff := scanner.Compare(previous, current)
-			if len(diff.Opened) > 0 || len(diff.Closed) > 0 {
-				events := alert.BuildEvents(diff)
-				if err := d.dispatcher.Dispatch(ctx, events); err != nil {
-					log.Printf("dispatch error: %v", err)
-				}
-			}
-
-			previous = current
+			previous = d.runOnce(ctx, previous)
 		}
 	}
+}
+
+// runOnce performs a single scan cycle, compares results against the previous
+// state, dispatches alerts for any changes, and returns the current port state.
+// If the scan fails, the previous state is returned unchanged.
+func (d *Daemon) runOnce(ctx context.Context, previous scanner.PortSet) scanner.PortSet {
+	current, err := d.scanner.Scan()
+	if err != nil {
+		log.Printf("scan error: %v", err)
+		return previous
+	}
+
+	diff := scanner.Compare(previous, current)
+	if len(diff.Opened) > 0 || len(diff.Closed) > 0 {
+		events := alert.BuildEvents(diff)
+		if err := d.dispatcher.Dispatch(ctx, events); err != nil {
+			log.Printf("dispatch error: %v", err)
+		}
+	}
+
+	return current
 }
