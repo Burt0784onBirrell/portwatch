@@ -18,5 +18,9 @@
 //		}
 //	}
 //
+// The minimum enforced interval is derived from the configured scan interval
+// and is intentionally conservative: it prevents back-to-back scans while
+// still allowing the daemon to recover quickly after a transient delay.
+//
 // The zero value is not usable; always construct via New.
 package throttle
