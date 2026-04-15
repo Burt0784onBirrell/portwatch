@@ -81,3 +81,15 @@ func TestFailures_TracksCount(t *testing.T) {
 		}
 	}
 }
+
+func TestFailure_CustomMultiplier(t *testing.T) {
+	bo := New()
+	bo.Multiplier = 3.0
+
+	first := bo.Failure()
+	second := bo.Failure()
+	expected := first * 3
+	if second != expected {
+		t.Fatalf("expected second delay to be %s with multiplier 3.0, got %s", expected, second)
+	}
+}
