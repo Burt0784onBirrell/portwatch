@@ -16,7 +16,8 @@ type FileNotifier struct {
 }
 
 // NewFileNotifier creates a FileNotifier that appends events to the given path.
-// The file is created if it does not exist.
+// The file is created if it does not exist. Returns an error if the path cannot
+// be opened or created.
 func NewFileNotifier(path string, format string) (*FileNotifier, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
@@ -55,4 +56,9 @@ func (fn *FileNotifier) Notify(events []alert.Event) error {
 		}
 	}
 	return nil
+}
+
+// Path returns the file path this notifier writes to.
+func (fn *FileNotifier) Path() string {
+	return fn.path
 }
