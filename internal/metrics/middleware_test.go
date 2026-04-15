@@ -53,6 +53,26 @@ func TestWithMetrics_DoesNotRecordOnError(t *testing.T) {
 	}
 }
 
+func TestWithMetrics_AccumulatesMultipleScans(t *testing.T) {
+	col := New()
+
+	wrapped := WithMetrics(func(ctx context.Context) (scanner.PortSet, error) {
+		return makePortSet(), nil
+	}, col)
+
+	const numScans = 5
+	for i := 0; i < numScans; i++ {
+		if _, err := wrapped(context.Background()); err != nil {
+			t.Fatalf("unexpected error on scan %d: %v", i, err)
+		}
+	}
+
+	snap := col.Snapshot()
+	if snap.TotalScans != numScans {
+		t.Errorf("expected TotalScans=%d, got %d", numScans, snap.TotalScans)
+	}
+}
+
 func TestRecordDiff_UpdatesAlerts(t *testing.T) {
 	col := New()
 	RecordDiff(col, 3)
