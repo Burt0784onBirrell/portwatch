@@ -47,6 +47,18 @@ func TestReporter_PrintOmitsLastChangeWhenNone(t *testing.T) {
 	}
 }
 
+func TestReporter_PrintShowsLastChangeWhenRecorded(t *testing.T) {
+	c := New()
+	c.RecordChange(1)
+	var buf bytes.Buffer
+	r := NewReporterWithWriter(c, time.Second, &buf)
+	r.Print()
+	out := buf.String()
+	if !strings.Contains(out, "Last change") {
+		t.Errorf("expected 'Last change' in output when change was recorded: %s", out)
+	}
+}
+
 func TestNewReporter_DefaultsToStdout(t *testing.T) {
 	c := New()
 	r := NewReporter(c, time.Second)
